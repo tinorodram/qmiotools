@@ -13,7 +13,7 @@ jobs:
       uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: 'docs/' # default is docs/
-        build-command: 'sphinx-build -b html . docs/build/html ' # optional, default is make html
+        build-command: 'sphinx-build -b html . build/html ' # optional, default is make html
         pre-build-command: 'python -m pip install nbsphinx sphinxcontrib.bibtex sphinxcontrib.programoutput sphinxcontrib.contentui autodoc MarkupSafe==2.0.1'
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -26,11 +26,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: docs/build/html
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      with:
-        publish_branch: gh-pages
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: docs/build/html
-        force_orphan: true
+    
