@@ -38,3 +38,6 @@ html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
+
+html_logo = "logo_Qmio_v5-azul-300x80.png"
+html_show_sourcelink = False
