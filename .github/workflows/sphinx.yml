@@ -12,7 +12,7 @@ jobs:
     - name: Build HTML
       uses: ammaraskar/sphinx-action@master
       with:
-        docs-folder: 'docs/' # default is docs/
+        docs-folder: 'docs/source/' # default is docs/
         build-command: 'sphinx-build -b html . build/html ' # optional, default is make html
         pre-build-command: 'python -m pip install nbsphinx sphinxcontrib.bibtex sphinxcontrib.programoutput sphinxcontrib.contentui autodoc MarkupSafe==2.0.1'
     - name: Upload artifacts
