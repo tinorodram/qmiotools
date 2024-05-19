@@ -10,6 +10,15 @@ import sys
 from sphinx.ext.autodoc import between
 sys.path.insert(0, os.path.abspath('../'))
 
+def setup(app):
+    app.add_config_value('toc_filter_exclude', [], 'html')
+    app.connect('autodoc-process-docstring',
+                between('^.*SIGNATURE.*$', exclude=True))
+    # app.add_css_file('css/custom.css')
+    # app.add_js_file('js/custom.js')
+
+    return app
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
