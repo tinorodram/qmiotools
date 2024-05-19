@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="qmiotools"
+dynamic = ["version"]
+dependencies = [
+	"qiskit>=1.0",
+	"pytket>=1.23",
+	"matplotlib",
+	"qmio>=0.1.1"
+]
+requires-python = ">=3.9.9"
+authors = [
+  {name = "Andrés Gómez (CESGA)", email = "aplicaciones@cesga.es"},
+]
+maintainers = [
+  {name = "Andrés Gómez (CESGA)", email = "aplicaciones@cesga.es"},
+  {name = "CESGA Applications Department", email = "aplicaciones@cesga.es"}
+]
+
+description="Tools and integration between QMIO and other frameworks "
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["CESGA", "QMIO", "QPU", "OQC"]
+classifiers=[
+        "Programming Language :: Python :: 3.9.9",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering",
+    ]
+
+[project.urls]
+Homepage = "http://quantum.cesga.es"
+Documentation = "None"
+Repository = "http://quantum.cesga.es" 
+Issues = "http://quantum.cesga.es" 
+Changelog = "http://quantum.cesga.es" 
+
+
+[tool.setuptools.dynamic]
+version = {attr = "qmiotools.version.__version__"}
+
+#[tool.setuptools.packages.find]
+#where = ["qmiotools"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md"]
+
+[tool.setuptools.exclude-package-data]
+"qmiotools.integrations" = ["__pycache__/*"]
+"qmiotools.notebooks" = ["Experimen*", "__pycache__/*"]
+
+[tool.hatch.build.targets.wheel]
+extra-metadata = ["RELEASE_NOTES.md"]
