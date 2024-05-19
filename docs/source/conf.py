@@ -19,6 +19,12 @@ extensions = []
 templates_path = ['_templates']
 exclude_patterns = []
 
+extensions = [
+   'sphinx.ext.duration',
+   'sphinx.ext.doctest',
+   'sphinx.ext.autodoc',
+   'sphinx.ext.autosummary',
+]
 
 
 # -- Options for HTML output -------------------------------------------------
