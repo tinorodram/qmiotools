@@ -11,6 +11,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build HTML
       uses: ammaraskar/sphinx-action@master
+      with:     
+        build-command: 'sphinx-build -b html . docs/build/html ' # optional, default is make html
+        pre-build-command: 'python -m pip install sphinx_rtd_theme nbsphinx sphinxcontrib.bibtex sphinxcontrib.programoutput sphinxcontrib.contentui autodoc MarkupSafe==2.0.1'
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
