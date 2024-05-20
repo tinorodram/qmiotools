@@ -14,7 +14,7 @@ Qmiotools's documentation
    :maxdepth: 4
    :caption: Contents:
 
-   qmiotools
+  
 
 Indices and tables
 ==================
