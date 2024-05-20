@@ -5,7 +5,8 @@
 
 Qmiotools's documentation
 =========================
-
+.. automodule:: qmiotools
+   
 .. toctree::
    :maxdepth: 4
    :caption: Contents:

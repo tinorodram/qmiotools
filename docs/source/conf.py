@@ -54,7 +54,8 @@ extensions = [
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend"]
 
-
+master_doc = 'index'
+napoleon_google_docstring = True
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
