@@ -7,6 +7,8 @@ Qmiotools's documentation
 =========================
 .. automodule:: qmiotools
    :members:
+   :undoc-members:
+   :private-members:
 
 .. toctree::
    :maxdepth: 4
