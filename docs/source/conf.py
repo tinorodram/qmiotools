@@ -54,6 +54,12 @@ extensions = [
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend"]
 
+autodoc_default_options = {
+    'members': '',
+    'member-order': 'bysource',
+    'undoc-members': True,
+}
+
 master_doc = 'index'
 napoleon_google_docstring = True
 # -- Options for HTML output -------------------------------------------------
