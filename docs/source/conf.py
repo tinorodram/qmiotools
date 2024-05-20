@@ -8,7 +8,14 @@
 import os
 import sys
 from sphinx.ext.autodoc import between
-sys.path.insert(0, os.path.abspath('../../'))
+
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.append(os.path.abspath('../../'))
+sys.path.append(os.path.abspath('../../qmiotools/'))
+sys.path.append(os.path.abspath('../../qmiotools/integrations'))
+
 
 def setup(app):
     app.add_config_value('toc_filter_exclude', [], 'html')
@@ -40,7 +47,15 @@ extensions = [
    'sphinx.ext.doctest',
    'sphinx.ext.autodoc',
    'sphinx.ext.autosummary',
+   'sphinx.ext.doctest', 
+   'nbsphinx',
+   'sphinx.ext.mathjax',
+   'sphinx.ext.napoleon',
+   'sphinxcontrib.programoutput',
+   'sphinxcontrib.contentui'
 ]
+autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
+    "qiskitqmio","tkbackend"]
 
 
 # -- Options for HTML output -------------------------------------------------
