@@ -50,8 +50,6 @@ extensions = [
    'sphinx.ext.doctest', 
    'sphinx.ext.mathjax',
    'sphinx.ext.napoleon',
-   'sphinxcontrib.programoutput',
-   'sphinxcontrib.contentui'
 ]
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend"]
