@@ -49,7 +49,8 @@ QBIT_MAP=[i for i in range(32)]
 
 class QmioJob(JobV1):
     """
-    :py:class:`qiskit.providers.JobV1`"""
+
+    A class to return the results of a Job following the structure of :py:class:`qiskit.providers.JobV1`"""
 
     def __init__(
         self,
@@ -68,7 +69,10 @@ class QmioJob(JobV1):
         
     def submit(self) -> None:
         """
-        Not necessary for this backend
+        
+        This method is not necessary for this backend, because currently the execution is synchronous
+
+
         """
         raise NotImplemented("Not necessary for this backend")
 
@@ -79,7 +83,7 @@ class QmioJob(JobV1):
 
     def cancel(self) -> None:
         """
-        Not necessary for this backend
+        This method is not necessary for this backend, because currently the execution is synchronous
         """
         raise NotImplemented("Not necessary for this backend")
 
@@ -110,13 +114,39 @@ class QmioBackend(BackendV2):
     
     The execution using the method run is synchronous.
     
-    To create a new backend use:
+    To create a new backend use::
     
         backend=QmioBackend()
     
-    It will print the file where the calibration were read in. If you want to use a specific calibrations file, use:
+    It will print the file where the calibration were read in. If you want to use a specific calibrations file, use::
         
-            backend=QmioBackend(<file name>)
+        backend=QmioBackend(<file name>)
+
+    wherw <file name> is the path to the calibrations file that must be used. If the file is not found, it raises a exception.
+
+    **Example**
+    ========::
+
+        from qiskit.circuit import QuantumCircuit
+        from qiskit import transpile
+        from qmiotools.integrations.qiskitqmio import QmioBackend
+       
+        backend=QmioBackend() # loads the last calibration file from the directory $QMIO_CALIBRARTIONS
+        
+        # Creates a circuit qwith 2 qubits 
+        c=QuantumCircuit(2)
+        c.h(0)
+        c.h(0)
+        c.measure_all()
+
+        #Transpile the circuit using the optimization_level equal to 2
+        c=transpile(c,backend,optimization_level=2)
+   
+        #Execute the circuit with 100 shots. Must be executed from a node with a QPU.
+        job=backend.run(c,shots=1000)
+
+        #Return the results
+        print(job.result().get_counts())
     
    
     """
