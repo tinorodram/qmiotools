@@ -130,7 +130,10 @@ def _default_compilation_pass(self, optimisation_level: int = 1, options: Option
     The basic compilation pass that produce a circuit with enough optimisation to run on Qmio.
     
     :param optimisation_level: The level of optimisation to perform during compilation. 
-        * Level 0 decompose boxes, solves the device constraints without optimising and convert to the supported gates.  * Level 1 additionally performs some light optimisations.  * Level 2 adds more intensive optimisations that can increase compilation time for large circuits. 
+        
+            * Level 0 decompose boxes, solves the device constraints without optimising and convert to the supported gates.  
+            * Level 1 additionally performs some light optimisations.  
+            * Level 2 adds more intensive optimisations that can increase compilation time for large circuits. 
         
             Any optimisation level includes the options of the previous level. 
             Defaults to 1.
