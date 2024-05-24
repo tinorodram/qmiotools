@@ -16,7 +16,7 @@ from pytket.utils.results import KwargTypes
 from pytket.unit_id import Node, Qubit
 
 
-from typing import List, Union, Tuple, Iterable, Optional, Sequence
+from typing import List, Union, Tuple, Iterable, Optional, Sequence, Dict
 from .utils import Calibrations
 from ..exceptions import QmioException, QPUException
 from ..version import VERSION
@@ -125,7 +125,7 @@ def _required_predicates(self) -> List[Predicate]:
     return preds
 
 
-def _default_compilation_pass(self, optimisation_level: int = 1, options: Optional[dict] = None, placement: Optional[Union[Placement, dict[int,int],dict[Qubit, Node]]] = None) -> BasePass:
+def _default_compilation_pass(self, optimisation_level: int = 1, options: Optional[Dict] = None, placement: Optional[Union[Placement, Dict[int,int],Dict[Qubit, Node]]] = None) -> BasePass:
     """
     The basic compilation pass that produce a circuit with enough optimisation to run on Qmio.
         :param optimisation_level: The level of optimisation to perform during compilation. 
