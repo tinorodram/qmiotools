@@ -52,13 +52,15 @@ extensions = [
    'sphinx.ext.napoleon',
 ]
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
-    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket"]
+    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket","networkx"]
 
 autodoc_default_options = {
     'members': '',
     'member-order': 'bysource',
-    'undoc-members': True,
+    'undoc-members': '',
+    'exclude-members': 'version'
 }
+exclude_paterns = ["**/qmiotools.version.rst"]
 
 master_doc = 'index'
 napoleon_google_docstring = True
