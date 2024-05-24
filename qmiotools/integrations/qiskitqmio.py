@@ -188,6 +188,7 @@ class QmioBackend(BackendV2):
         #print(durations)
         ecr_inst=OrderedDict()
         for i in errors:
+            #print((i[0],i[1]),(QBIT_MAP2[i[0]],QBIT_MAP2[i[1]]))
             ecr_inst[(QBIT_MAP[i[0]],QBIT_MAP[i[1]])]=InstructionProperties(duration=durations[i], error=errors[i])
             #print(i,ecr_inst[i])
         
