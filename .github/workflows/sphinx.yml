@@ -13,7 +13,6 @@ jobs:
       uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: 'docs/' # default is docs/
-        build-command: 'ZMQ_SERVER=http make html'
         pre-build-command: 'python -m pip install nbsphinx sphinxcontrib.bibtex sphinxcontrib.programoutput sphinxcontrib.contentui autodoc MarkupSafe==2.0.1 qmio-run pytket qiskit'
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
