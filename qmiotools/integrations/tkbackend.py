@@ -128,18 +128,17 @@ def _required_predicates(self) -> List[Predicate]:
 def _default_compilation_pass(self, optimisation_level: int = 1, options: Optional[Dict] = None, placement: Optional[Union[Placement, Dict[int,int],Dict[Qubit, Node]]] = None) -> BasePass:
     """
     The basic compilation pass that produce a circuit with enough optimisation to run on Qmio.
-        args:
-            optimisation_level: The level of optimisation to perform during compilation. Level 0 decompose boxes, solves the device constraints without optimising and convert to the supported gates.  * Level 1 additionally performs some light optimisations.  * Level 2 adds more intensive optimisations that can increase compilation time for large circuits. 
+        :param optimisation_level: The level of optimisation to perform during compilation. Level 0 decompose boxes, solves the device constraints without optimising and convert to the supported gates.  * Level 1 additionally performs some light optimisations.  * Level 2 adds more intensive optimisations that can increase compilation time for large circuits. 
         
             Any optimisation level includes the options of the previous level. 
             Defaults to 1.
             
-            options: 
+        :param options: 
             
-            placement: Selected placement for the execution. 
+        :param placement: Selected placement for the execution. 
         
-        Returns:
-            BasePass: Compilation pass guaranteeing required predicates.
+        :return: Compilation pass guaranteeing required predicates.
+        :rtype: BasePass
     """
     assert optimisation_level in range(3)
     
