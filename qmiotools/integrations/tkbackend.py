@@ -435,6 +435,12 @@ class Qmio(Backend):
     
     
     def draw_graph(self):
+        """
+        
+        Using matplotlib and networkx, plots the current connectivity of Qmio.
+
+
+        """
         import matplotlib.pyplot as plt 
         
         coupling_graph = nx.DiGraph(self.backend_info.architecture.coupling)
