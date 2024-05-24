@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import glob
 from collections import OrderedDict
@@ -95,26 +96,37 @@ class Calibrations(OrderedDict):
         return self["Qubits"]
 
     
-def import_last_calibration(jsonpath: str = None) -> Calibrations:
-    if jsonpath is None:
-        jsonpath=os.getenv("QMIO_CALIBRATIONS",".")
-        files=jsonpath+"/????_??_??__??_??_??.json"
-        try:
-            files = glob.glob(files)
-        except:
-            raise RuntimeError("Error reading folder ".format(jsonpath))
-        if len(files)!=0:
-            imput=max(files, key=os.path.getctime)
+    @classmethod
+    def import_last_calibration(cls, jsonpath: str = None) -> Calibrations:
+        """
+        A static method to create an instance of the class using a specific file for the calibrations.
+
+        parameters:
+                    jsonpath:
+        returns:
+                An instance of the class
+
+
+        """
+        if jsonpath is None:
+            jsonpath=os.getenv("QMIO_CALIBRATIONS",".")
+            files=jsonpath+"/????_??_??__??_??_??.json"
+            try:
+                files = glob.glob(files)
+            except:
+                raise RuntimeError("Error reading folder ".format(jsonpath))
+            if len(files)!=0:
+                imput=max(files, key=os.path.getctime)
+            else:
+                raise RuntimeError("No calibration files on %s"%jsonpath)
         else:
-            raise RuntimeError("No calibration files on %s"%jsonpath)
-    else:
-        imput=jsonpath
-    print("Importing calibrations from ",imput)
-    try:
-        with open(imput,"r") as f:
-            calibrations=Calibrations(OrderedDict(json.load(f)))
-    except:
-        raise RuntimeError("Error reading file ".format(imput))
-    return calibrations
+            imput=jsonpath
+        print("Importing calibrations from ",imput)
+        try:
+            with open(imput,"r") as f:
+                calibrations=Calibrations(OrderedDict(json.load(f)))
+        except:
+            raise RuntimeError("Error reading file ".format(imput))
+        return calibrations
 
 

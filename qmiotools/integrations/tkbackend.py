@@ -17,9 +17,10 @@ from pytket.unit_id import Node, Qubit
 
 
 from typing import List, Union, Tuple, Iterable, Optional, Sequence
-from .utils import Calibrations, import_last_calibration
+from .utils import Calibrations
 from ..exceptions import QmioException, QPUException
 from ..version import VERSION
+from ..data import QUBIT_POSITIONS
 
 from collections import Counter
 import networkx as nx
@@ -85,7 +86,7 @@ def _QmioArchitecture(calibration_file: str = None):
     Wrapper to transform the information of the architecture to TKET
     This is needed for getting the directioness
     """
-    calibration=import_last_calibration(calibration_file)
+    calibration=Calibrations.import_last_calibration(calibration_file)
     Connections=calibration.get_mapping()
     
     from pytket.unit_id import Node
@@ -396,11 +397,14 @@ class Qmio(Backend):
     _1Qgateset={
                 OpType.SX,
                 OpType.Rz,
+                OpType.X,
+                
             }
     _gateset={
                 OpType.ECR,
                 OpType.Measure,
                 OpType.Barrier,
+                
             }
     _gateset.update(_1Qgateset)
     
@@ -438,6 +442,7 @@ class Qmio(Backend):
             (5,1),(5,2),(5,3),(5,4),(5,5),(5,6),
             (6,6.5),(6,4.5),(6,2.5),(6,1),
             (7,1),(7,2),(7,3),(7,4),(7,5),(7,6)]
+        positions=QUBIT_POSITIONS
         pos={}
         for i in range(len(self.backend_info.architecture.nodes)):
             pos.update({self.backend_info.architecture.nodes[i]:(positions[i][1]*0.5,positions[i][0]*2)})
