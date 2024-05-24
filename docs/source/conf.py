@@ -52,7 +52,7 @@ extensions = [
    'sphinx.ext.napoleon',
 ]
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
-    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket","networkx"]
+    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx"]
 
 autodoc_default_options = {
     'members': '',
