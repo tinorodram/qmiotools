@@ -124,8 +124,7 @@ class QmioBackend(BackendV2):
 
     wherw <file name> is the path to the calibrations file that must be used. If the file is not found, it raises a exception.
 
-    **Example**
-    ========::
+    **Example**::
 
         from qiskit.circuit import QuantumCircuit
         from qiskit import transpile
