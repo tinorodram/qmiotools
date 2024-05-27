@@ -38,7 +38,7 @@ release = '0.1.1'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+#extensions = []
 
 templates_path = ['_templates']
 exclude_patterns = []
@@ -51,6 +51,7 @@ extensions = [
    'sphinx.ext.doctest', 
    'sphinx.ext.mathjax',
    'sphinx.ext.napoleon',
+   'sphinx_automodapi.automodapi'
 ]
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx"]
