@@ -279,11 +279,11 @@ class QmioBackend(BackendV2):
                 object.
 
         Returns:
-            Job: The job object for the run
+            :class:`.qiskitqmio.QmioJob`: The job object for the run
         
         Raises:
-            QPUException if there is one error in the QPU
-            QmioException if there are errors in the input parameters.
+            QPUException: if there is one error in the QPU
+            QmioException: if there are errors in the input parameters.
         """
 
         if isinstance(options,Options):
