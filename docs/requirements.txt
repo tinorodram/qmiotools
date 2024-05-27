@@ -3,3 +3,4 @@ qiskit
 pytket
 qmio
 networkx
+sphinx-automodapi
