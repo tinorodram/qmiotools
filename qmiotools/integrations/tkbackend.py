@@ -129,7 +129,8 @@ def _default_compilation_pass(self, optimisation_level: int = 1, options: Option
     """
     The basic compilation pass that produce a circuit with enough optimisation to run on Qmio.
     
-    :param optimisation_level: The level of optimisation to perform during compilation. 
+    Args:
+        optimisation_level: The level of optimisation to perform during compilation. 
         
             * Level 0 decompose boxes, solves the device constraints without optimising and convert to the supported gates.  
             * Level 1 additionally performs some light optimisations.  
@@ -138,12 +139,12 @@ def _default_compilation_pass(self, optimisation_level: int = 1, options: Option
             Any optimisation level includes the options of the previous level. 
             Defaults to 1.
             
-    :param options: 
+        options: 
             
-    :param placement: Selected placement for the execution. 
+        placement: Selected placement for the execution. 
         
-    :return: Compilation pass guaranteeing required predicates.
-    :rtype: BasePass
+    Return: 
+        Compilation pass guaranteeing required predicates.
     """
     assert optimisation_level in range(3)
     
@@ -301,13 +302,17 @@ def _run_circuit(
         """
         Submits a circuit to the backend and returns results
 
-        :param circuit: Circuit to be executed
-        :param n_shots: Number of shots. Default: 8192
-        :param valid_check: Flag to check if the circuit is valid before run
-        :param binary: Flag to ask for raw binary. Default False, returning the counts
-        :param repetition_period: Time between two executions of the circuit. 
-        :return: Result
-        :rtype: BackendResult
+        Args:
+            circuit: Circuit to be executed
+            n_shots: Number of shots. Default: 8192
+            valid_check: Flag to check if the circuit is valid before run
+            binary: Flag to ask for raw binary. Default False, returning the counts
+            repetition_period: Time between two executions of the circuit. 
+        Return: 
+            The results of the execution
+
+        Raises:
+            :class: `..exceptions.QpuException` if the execution in the QPU fails, including a description of the exception raised by the QPU
 
         """
         if valid_check:

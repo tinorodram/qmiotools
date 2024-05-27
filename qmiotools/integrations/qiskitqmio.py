@@ -487,18 +487,18 @@ def FakeQmio(calibration_file: str=None, thermal_relaxation: bool = True, temper
     Create a Fake backend for Qmio that uses the last calibrations and AerSimulator. 
 
     Args:
-        calibration_file: A path to a valid calibration file. If the path is **None** (default), the last calibration is loaded.
-        thermal_relaxation: If True, the noise model will include the thermal relaxation using the data from the calibration. Default: *True*
-        temperature: the temperature in mK. If it is different of 0 (defaul)
-        gate_error: Flag to include (True) or not (False. Default option) the gate errors in the model.
-        readout_error: Flag to include (True) or not (False. Default) the readout error from the calibrations file.
+        calibration_file (str): A path to a valid calibration file. If the path is **None** (default), the last calibration is loaded.
+        thermal_relaxation (bool): If True, the noise model will include the thermal relaxation using the data from the calibration. Default: *True*
+        temperature (float): the temperature in mK. If it is different of 0 (defaul)
+        gate_error (bool): Flag to include (True) or not (False. Default option) the gate errors in the model.
+        readout_error (bool): Flag to include (True) or not (False. Default) the readout error from the calibrations file.
         **kwargs: other parameters to pass directly to AerSimulator
 
     Returns:
-        A valid backend including the defined noise model.
+        (AerSimulator): A valid backend including the defined noise model.
 
     Raises:
-       :class:`..exceptions.QmioException` if the configuration file could not be found. 
+        QmioException: if the configuration file could not be found. 
 
     """
     qmio=QmioBackend(calibration_file)
