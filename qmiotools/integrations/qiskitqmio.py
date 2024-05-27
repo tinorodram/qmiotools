@@ -445,10 +445,11 @@ def FlattenCircuit(circ: QuantumCircuit) -> QuantumCircuit:
     """
     Method to convert a Qiskit circuit with several ClassicalRegisters in a single ClassicalRegister
     
-    args:
+    Args:
         circ: A QuantumCircuit
         
-        returns: A new QuantumCircuit with a single ClassicalRegister
+    Returns: 
+        A new QuantumCircuit with a single ClassicalRegister
     """
     d=QuantumCircuit()
     [d.add_register(i) for i in circ.qregs]
@@ -483,7 +484,21 @@ from qiskit_aer.noise import NoiseModel
 
 def FakeQmio(calibration_file: str=None, thermal_relaxation: bool = True, temperature: float = 0 , gate_error: bool=False, readout_error: bool=False, **kwargs) -> AerSimulator:
     """
-    Fake backend for Qmio that uses the last calibrations and AerSimulator. 
+    Create a Fake backend for Qmio that uses the last calibrations and AerSimulator. 
+
+    Args:
+        calibration_file: A path to a valid calibration file. If the path is **None** (default), the last calibration is loaded.
+        thermal_relaxation: If True, the noise model will include the thermal relaxation using the data from the calibration. Default: *True*
+        temperature: the temperature in mK. If it is different of 0 (defaul)
+        gate_error: Flag to include (True) or not (False. Default option) the gate errors in the model.
+        readout_error: Flag to include (True) or not (False. Default) the readout error from the calibrations file.
+        **kwargs: other parameters to pass directly to AerSimulator
+
+    Returns:
+        A valid backend including the defined noise model.
+
+    Raises:
+       :class:`..exceptions.QmioException` if the configuration file could not be found. 
 
     """
     qmio=QmioBackend(calibration_file)
