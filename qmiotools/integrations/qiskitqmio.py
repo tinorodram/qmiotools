@@ -114,13 +114,13 @@ class QmioBackend(BackendV2):
     Backend to execute Jobs in Qmio QPU.
     
     Args:
-            calibration_file (Str with a full path to a calibration file. Default None and loads the last calibration file from the directory indicated by environment QMIO_CALIBRATIONS
+            calibration_file (Str or None):  full path to a calibration file. Default *None* and loads the last calibration file from the directory indicated by environment QMIO_CALIBRATIONS
             
-            logging_level (int indicating the logging level. Better if use the logginf package levels) Default logging.NOTSET
+            logging_level (int): flag to indicate the logging level. Better if use the logging package levels. Default logging.NOTSET
             
-            logging_filename (Str with the path to store the logging messages). Default None, i.e., output in stdout
+            logging_filename (Str):  Path to store the logging messages. Default *Nonei*, i.e., output in stdout
             
-            kwargs Other parameters to pass to Qisbit BackendV2 class
+            kwargs: Other parameters to pass to Qisbit BackendV2 class
 
     
     It uses :py:class:`qmio.QmioRuntimeService` to submit circuits to the QPU. By default, the calibrations are read from the last JSON file in the directory set by environ variable QMIO_CALIBRATIONS, but accepts a direct filename to use instead of.
