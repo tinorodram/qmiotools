@@ -19,7 +19,7 @@ import math
 import uuid
 #import datetime
 from collections import Counter, OrderedDict
-from datetime import date
+from datetime import date,datetime
 from typing import Union, List, Optional, Dict,  Any, TYPE_CHECKING, Union, cast
 from dataclasses import dataclass
 import warnings
@@ -45,6 +45,7 @@ from qmio import QmioRuntimeService
 QBIT_MAP2=QBIT_MAP.copy()
 QBIT_MAP=[i for i in range(32)]
 
+import logging
 
 
 class QmioJob(JobV1):
@@ -104,11 +105,23 @@ class QasmCircuit():
 
 
 
-DEFAULT_OPTIONS=Options(shots=8192,memory=False,repetition_period=250e-6)
+DEFAULT_OPTIONS=Options(shots=8192,memory=False,repetition_period=None,res_format="binary_count")
+FORMATS=["binary_count","raw","binary","squash_binary_result_arrays"]
+DT=0.5*1e-9 #0.5ns
 
 class QmioBackend(BackendV2):
     """
-    Backend to execute Jobs in Qmio QPU. 
+    Backend to execute Jobs in Qmio QPU.
+    
+    Args:
+            calibration_file (Str with a full path to a calibration file. Default None and loads the last calibration file from the directory indicated by environment QMIO_CALIBRATIONS
+            
+            logging_level (int indicating the logging level. Better if use the logginf package levels) Default logging.NOTSET
+            
+            logging_filename (Str with the path to store the logging messages). Default None, i.e., output in stdout
+            
+            kwargs Other parameters to pass to Qisbit BackendV2 class
+
     
     It uses :py:class:`qmio.QmioRuntimeService` to submit circuits to the QPU. By default, the calibrations are read from the last JSON file in the directory set by environ variable QMIO_CALIBRATIONS, but accepts a direct filename to use instead of.
     
@@ -122,7 +135,7 @@ class QmioBackend(BackendV2):
         
         backend=QmioBackend(<file name>)
 
-    wherw <file name> is the path to the calibrations file that must be used. If the file is not found, it raises a exception.
+    where <file name> is the path to the calibrations file that must be used. If the file is not found, it raises a exception.
 
     **Example**::
 
@@ -141,7 +154,7 @@ class QmioBackend(BackendV2):
         #Transpile the circuit using the optimization_level equal to 2
         c=transpile(c,backend,optimization_level=2)
    
-        #Execute the circuit with 100 shots. Must be executed from a node with a QPU.
+        #Execute the circuit with 1000 shots. Must be executed from a node with a QPU.
         job=backend.run(c,shots=1000)
 
         #Return the results
@@ -149,16 +162,40 @@ class QmioBackend(BackendV2):
     
    
     """
- 
+    
 
-    def __init__(self, calibration_file: str=None, **kwargs):
+    def __init__(self, calibration_file: str=None, logging_level: int=logging.NOTSET, logging_filename: str=None, **kwargs):
         
         self._provider=None
         self._name="Qmio"
         self._description="CESGA Qmio"
         self._backend_version=VERSION
-        super().__init__(self, **kwargs)
+        self._logger = logging.getLogger("QmioBackend") 
+
+        self._logger.setLevel(logging_level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
         
+        
+        
+        if logging_filename!=None:
+            handler = logging.FileHandler(logging_filename)
+        else:
+            import sys
+            handler = logging.StreamHandler(sys.stdout)
+        
+        handler.setFormatter(formatter)
+        if (self._logger.hasHandlers()):
+            self._logger.handlers.clear()
+        self._logger.addHandler(handler)
+        
+        self._logger.info("Logging started:")
+        handler.flush()
+            
+        super().__init__(self,name=self._name, description=self._description, **kwargs)
+        
+        self._logger.info("Loading calibrations")
+        handler.flush()
         
         calibrations=Calibrations.import_last_calibration(calibration_file)
         properties=[]
@@ -167,8 +204,6 @@ class QmioBackend(BackendV2):
         #
         # Load Qubits Properties
         #
-        #for i in qubits:
-        #    properties.append(QubitProperties(t1=qubits[i]["T1"]*1e-6,t2=qubits[i]["T2e"]*1e-6,frequency=qubits[i]["Drive Frequency "]))
         
         
         keys=list(qubits.keys())
@@ -180,10 +215,14 @@ class QmioBackend(BackendV2):
                 key=keys[j]
                 properties.append(QubitProperties(t1=qubits[key]["T1"]*1e-6,t2=qubits[key]["T2e"]*1e-6,frequency=qubits[key]["Drive Frequency "]))
                 j=j+1
+                self._logger.debug("Qubit:%s, T1=%f, T2=%f, Drive Freq:%f"%(key,qubits[key]["T1"]*1e-6,qubits[key]["T2e"]*1e-6,qubits[key]["Drive Frequency "]))
             else:
                 properties.append(None)
-        print("len:",len(properties))
-        target = Target(description="qmio", num_qubits=len(properties), dt=0.5*1e-9, granularity=1, 
+                
+        self._logger.info("Number of loaded qubits %d"%len(properties))
+        
+        
+        target = Target(description="qmio", num_qubits=len(properties), dt=DT, granularity=1, 
                         min_length=1, pulse_alignment=1, acquire_alignment=1, 
                         qubit_properties=properties, concurrent_measurements=None)
         
@@ -192,13 +231,15 @@ class QmioBackend(BackendV2):
         
         errors=calibrations.get_1Q_errors()
         durations=calibrations.get_1Q_durations()
-        
+       
         sx_inst=OrderedDict()
         x_inst=OrderedDict()
         for i in errors:
             sx_inst[(QBIT_MAP[i[0]],)]=InstructionProperties(duration=durations[i], error=errors[i])
+            self._logger.debug("Added SX[%d]- Duration %fns - error %f"%(QBIT_MAP[i[0]],durations[i]*1e9,errors[i]))
+        for i in errors:
             x_inst[(QBIT_MAP[i[0]],)]=InstructionProperties(duration=durations[i]*2, error=errors[i])
-
+            self._logger.debug("Added X[%d]- Duration %fns - error %f"%(QBIT_MAP[i[0]],durations[i]*1e9*2,errors[i]))
         
         target.add_instruction(SXGate(), sx_inst)
         target.add_instruction(XGate(), x_inst)
@@ -206,7 +247,7 @@ class QmioBackend(BackendV2):
         rz_inst=OrderedDict()
         for i in durations:
             rz_inst[(QBIT_MAP[i[0]],)]=InstructionProperties(duration=0.0)
-        
+            self._logger.debug("Added rz[%d]- Duration %fns - error %f"%(QBIT_MAP[i[0]],0.0,0.0))
                 
         target.add_instruction(RZGate(theta), rz_inst)
         
@@ -214,12 +255,14 @@ class QmioBackend(BackendV2):
         #target.add_instruction(ECRGate(), q2_inst)   
         errors=calibrations.get_2Q_errors()
         durations=calibrations.get_2Q_durations()
-        #print(durations)
+        
+        #self._logger.debug(durations)
+        
         ecr_inst=OrderedDict()
         for i in errors:
-            #print((i[0],i[1]),(QBIT_MAP2[i[0]],QBIT_MAP2[i[1]]))
+            self._logger.debug("Added ecr_inst[(%d,%d) - duration %fns - error %f]"%(QBIT_MAP[i[0]],QBIT_MAP[i[1]],durations[i]*1e9,errors[i]))
             ecr_inst[(QBIT_MAP[i[0]],QBIT_MAP[i[1]])]=InstructionProperties(duration=durations[i], error=errors[i])
-            #print(i,ecr_inst[i])
+            
         
         target.add_instruction(ECRGate(), ecr_inst)
         #target.add_instruction(RZXGate(math.pi/4), ecr_inst, name="rzx(pi/4)")
@@ -233,6 +276,7 @@ class QmioBackend(BackendV2):
                 k=keys[j]
                 j=j+1
                 measures[(i,)]=InstructionProperties(error=1.0-qubits[k]["Fidelity readout"],duration=qubits[k]["Measuring time"]*1e-6)
+                self._logger.debug("measures[%d] - error %f - duration %fs"%(i,1.0-qubits[k]["Fidelity readout"],qubits[k]["Measuring time"]*1e-6))
             else:
                 measures[(i,)]=InstructionProperties(error=1.0)
         target.add_instruction(Measure(),measures)
@@ -246,10 +290,19 @@ class QmioBackend(BackendV2):
         self._target = target
         
         self._options = DEFAULT_OPTIONS
+        self._logger.info("Default options %s"%DEFAULT_OPTIONS)
+        
         self._version = VERSION
+        self._logger.info("VERSION %s"%VERSION)
+        
         self._max_circuits=1000
+        self._logger.info("MAX CIRCUITS %d"%self._max_circuits)
+        
         self._max_shots=8192
+        self._logger.info("MAX SHOTS PER STEP %d"%self._max_shots)
+        
         self.max_shots=self._max_circuits*self._max_shots
+        self._logger.info("MAX SHOTS PER JOB %d"%self.max_shots)
         
 
     @property
@@ -263,6 +316,7 @@ class QmioBackend(BackendV2):
     @property
     def max_circuits(self):
         return self._max_circuits
+    
     
     def run(self, run_input: Union[Union[QuantumCircuit,Schedule, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
         """Run on QMIO QPU. This method is Synchronous, so it will wait for the results from the QPU
@@ -288,16 +342,17 @@ class QmioBackend(BackendV2):
 
         if isinstance(options,Options):
             shots=options.get("shots",default=self._options.get("shots"))
-            memory=options.get("memory",default=self._options.get("shots"))
+            memory=options.get("memory",default=self._options.get("memory"))
             repetition_period=options.get("repetition_period",default=self._options.get("repetition_period"))
+            res_format=options.get("res_format",default=self._options.get("res_format"))
         else:
             if "shots" in options:
                 shots=options["shots"]
             else:
                 shots=self._options.get("shots")
-
+            
             if "memory" in options:
-                shots=options["memory"]
+                memory=options["memory"]
             else:
                 memory=self._options.get("memory")
 
@@ -305,7 +360,16 @@ class QmioBackend(BackendV2):
                 repetition_period=options["repetition_period"]
             else:
                 repetition_period=self._options.get("repetition_period")
-
+            
+            if "res_format" in options:
+                res_format=options["res_format"]
+            else:
+                res_format=self._options.get("res_format")
+        
+        self._logger.info("Requested parameters: Shots %d - memory %s - Repetition_period %s - Res_format %s"%(shots, memory, str(repetition_period), res_format))
+               
+        if res_format not in FORMATS:
+            raise QmioException("Format %s not in available formats:%s"%(res_format,FORMATS))
 
         if isinstance(run_input,str) and not "OPENQASM" in run_input:
             raise QmioException("Input seems not to be a valid OPENQASM 3.0 file...")
@@ -318,10 +382,14 @@ class QmioBackend(BackendV2):
         if shots*len(circuits) > self.max_shots:
             raise QmioException("Total number of shots %d larger than capacity %d"%(shots,self.max_shots))
         
-
+        self._logger.debug("Starting QmioRuntimeService")
         service = QmioRuntimeService()
-        #print(service)
+                          
+        
         job_id=uuid.uuid4()
+                          
+        self._logger.debug("Job id %s"%job_id)
+                          
         ExpResult=[]
         with service.backend(name="qpu") as backend:
             for circuit in circuits:
@@ -349,20 +417,17 @@ class QmioBackend(BackendV2):
                     #print(qasm)
                 else:
                     qasm=c
+                
+                
                 remain_shots=shots
                 ExpDict={}
-              
+                self._logger.info("QASM %s"%qasm)
                 warning_raised = False
                 while (remain_shots > 0):
-                    try:
-                        results = backend.run(circuit=qasm, shots=min(self._max_shots,remain_shots),repetition_period=repetition_period)
-                    except TypeError:
-                        if not warning_raised:
-                            warnings.warn("No repetition_period allowed")
-                            warning_raised=True
-                        results = backend.run(circuit=qasm, shots=min(self._max_shots,remain_shots))
+                    self._logger.info("Requesting SHOTS=%d"%min(self._max_shots,remain_shots))
+                    results = backend.run(circuit=qasm, shots=min(self._max_shots,remain_shots),repetition_period=repetition_period,res_format=res_format)
                         
-                    #print("Results:",results)
+                    self._logger.debug("Results:%s"%results)
                     if "Exception" in results:
                         raise QPUException(results["Exception"])
                     try:
@@ -376,15 +441,18 @@ class QmioBackend(BackendV2):
                         else:
                             raise QmioException("Binary for the next version")
                     remain_shots=remain_shots-self._max_shots
+                
                 if isinstance(c,QuantumCircuit):
                     metadata=c.metadata
-                    #print("internal metadata:",metadata)
                 else:
                     metadata={}
                 
                 if "execution_metrics" in results:
-                    metadata["execution_metrics"]=results["execution_metrics"] 
-               
+                    metadata["execution_metrics"]=results["execution_metrics"]
+                    
+                metadata["repetition_period"]=repetition_period
+                metadata["res_format"]=res_format
+                
                 creg_sizes=[]
                 qreg_sizes=[]
                 memory_slots=0
@@ -408,6 +476,9 @@ class QmioBackend(BackendV2):
                                'qreg_sizes':qreg_sizes,'metadata':circuit.metadata}
                 #header.update(c.metadata)
 
+                self._logger.debug("Retorno: %s"%ExpDict)
+                
+
                 dd={
                     'shots': shots,
                     'success': True,
@@ -419,7 +490,7 @@ class QmioBackend(BackendV2):
                     'header': header,
 
                     }
-                #print(dd)
+                
                 ExpResult.append(dd)
 
         result_dict = {
@@ -429,10 +500,11 @@ class QmioBackend(BackendV2):
             'job_id': job_id,
             'success': True,
             'results': ExpResult,
-            'date': date.today().isoformat(),
+            'date': datetime.now().isoformat(),
 
         }
-
+        self._logger.debug("Final Results returned: %s"%result_dict)
+                          
         results=Result.from_dict(result_dict)
 
         job=QmioJob(backend=self,job_id=uuid.uuid4(), jobstatus=JobStatus.DONE, result=results)
