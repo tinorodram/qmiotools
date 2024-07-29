@@ -215,11 +215,11 @@ def backend_info(self) -> BackendInfo:
         
         _averaged_node_gate_errors={}
         for k in calibrations["Q1Gates"]:
-            _averaged_node_gate_errors[N[int(k[2:-1])]]=1.0 - calibrations["Q1Gates"][k]["SX"]["Fidelity"]/100
+            _averaged_node_gate_errors[N[int(k[2:-1])]]=1.0 - calibrations["Q1Gates"][k]["SX"]["Fidelity(RB)"]
         
         _averaged_node_edge_errors={}
-        for k in calibrations["Q2Gates"]:
-            _averaged_node_edge_errors[(N[int(calibrations["Q2Gates"][k]["Control"])],N[int(calibrations["Q2Gates"][k]["Target"])])]=1.0 - calibrations["Q2Gates"][k]["Fidelity"]/100
+        for k in calibrations["Q2Gates(RB)"]:
+            _averaged_node_edge_errors[(N[int(calibrations["Q2Gates(RB)"][k]["ECR"]["Control"])],N[int(calibrations["Q2Gates(RB)"][k]["ECR"]["Target"])])]=1.0 - calibrations["Q2Gates(RB)"][k]["ECR"]["Fidelity(RB)"]
         
         _averaged_node_readout_errors={}
         for k in calibrations["Qubits"]:

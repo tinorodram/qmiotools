@@ -1,7 +1,13 @@
+## version 0.1.3 (20/07/2024
+* QmioBackend connects and disconnects only once per session. Closes connections when the instance is destroyed or the program exits.
+* QmioBankend and FakeQmio reads the new type of calibration file. 
+* FakeQmio includes looging.
+
 ## version 0.1.2 (14/06/2024)
 * QmioBackend now returns repetition_period and res_format in the metadata
-* QmioBackend now permits loggin
+* QmioBackend now permits logging
 * QmioBackend default repetition_period now is None - It uses the default repetition_period from the Qmio QPU.
+
 
 ## version 0.1.1 (27/05/2024)
 * QmioBackend now provides a name
