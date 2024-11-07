@@ -108,7 +108,7 @@ class QasmCircuit():
 
 
 
-DEFAULT_OPTIONS=Options(shots=8192,memory=False,repetition_period=None,res_format="binary_count")
+DEFAULT_OPTIONS=Options(shots=10000,memory=False,repetition_period=None,res_format="binary_count")
 FORMATS=["binary_count","raw","binary","squash_binary_result_arrays"]
 DT=0.5*1e-9 #0.5ns
 
@@ -313,7 +313,7 @@ class QmioBackend(BackendV2):
         self._max_circuits=1000
         self._logger.info("MAX CIRCUITS %d"%self._max_circuits)
         
-        self._max_shots=self._options.get("shots")
+        self._max_shots=self._options.get("shots")*10
         self._logger.info("MAX SHOTS PER STEP %d"%self._max_shots)
         
         self.max_shots=self._max_circuits*self._max_shots
@@ -479,11 +479,14 @@ class QmioBackend(BackendV2):
 
             #print("Metadata",c.metadata)
             if isinstance(c,QuantumCircuit) or isinstance(c,Schedule):
-                qasm=qasm3.dumps(c, basis_gates=self.operation_names).replace("\n","")
+                basis_gates=self.operation_names.copy()
+                basis_gates.remove('measure')
+                basis_gates.remove('delay')
+                qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
                 self._logger.debug("Obtainded QASM from circuit:%s"%qasm.replace("\n",""))
                 if "qubit[" in qasm:
                     c=transpile(c,self,optimization_level=0)
-                    qasm=qasm3.dumps(c, basis_gates=self.operation_names).replace("\n","")
+                    qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
                 #print("Antes:\n",qasm)
                 for i in range(self.num_qubits-1,-1,-1):
                     #print("$%d;"%i,"$%d;"%QBIT_MAP2[i])

@@ -1,4 +1,8 @@
-## version 0.1.3 (20/07/2024
+## version 0.1.3 (20/07/2024)
+* First tag version 0.1.4
+* Corrected issues with exports to OpenQASM 3.0 from Qiskit 1.2.x
+ 
+## version 0.1.3 (20/07/2024)
 * QmioBackend connects and disconnects only once per session. Closes connections when the instance is destroyed or the program exits.
 * QmioBankend and FakeQmio reads the new type of calibration file. 
 * FakeQmio includes looging.
