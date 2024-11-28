@@ -318,7 +318,7 @@ def _run_circuit(
         if valid_check:
             self._check_all_circuits([circuit])
         
-        qasm = circuit_to_qasm_str(circuit).replace("\n","").replace("OPENQASM 2.0","OPENQASM 3.0")
+        qasm = circuit_to_qasm_str(circuit).replace("\n","").replace("OPENQASM 2.0","OPENQASM 3.0") #.replace("SX ", "rx(pi/2) ").replace("sx ", "rx(pi/2) ")
         print(qasm)
                                                                                                            
         service = QmioRuntimeService()

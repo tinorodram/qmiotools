@@ -8,7 +8,7 @@ from qiskit.circuit import Delay
 from qiskit.transpiler import Target, InstructionProperties
 from qiskit.circuit.library import UGate, CXGate, Measure
 from qiskit.circuit import Parameter, QuantumCircuit, ClassicalRegister
-from qiskit.pulse import Schedule
+from qiskit.pulse import Schedule, ScheduleBlock
 from qiskit.result.models import ExperimentResult, ExperimentResultData
 from qiskit.result import Result, Counts  
 from qiskit.qobj import QobjExperimentHeader
@@ -33,6 +33,7 @@ from ...version import VERSION
 from ...data import QBIT_MAP, QUBIT_POSITIONS
 from .qmiojob import QmioJob
 from .flattencircuit import FlattenCircuit
+from .qpebuilder import QPBuilder
 
 
 from qmio import QmioRuntimeService
@@ -133,7 +134,7 @@ class QmioBackend(BackendV2):
         self._logger = logging.getLogger("QmioBackend")
         self._QPUBackend=None
         self._calibration_file=None
-        
+        self._builder=None
         #
         # Logging activate
         #
@@ -345,11 +346,46 @@ class QmioBackend(BackendV2):
         del self._QPUBackend
         self._QPUBackend=None
     
+    def _to_qasm3(self,c):
+        self._logger.debug("Converting to OPENQASM 3.0")
+        basis_gates=self.operation_names.copy()
+        basis_gates.remove('measure')
+        basis_gates.remove('delay')
+        qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
+        self._logger.debug("Obtainded QASM from circuit:%s"%qasm.replace("\n",""))
+        if "qubit[" in qasm:
+            c=transpile(c,self,optimization_level=0)
+            qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
+        
+        for i in range(self.num_qubits-1,-1,-1):
+            qasm=qasm.replace("$%d;"%i,"$%d;"%QBIT_MAP2[i])
+            qasm=qasm.replace("$%d,"%i,"$%d,"%QBIT_MAP2[i])
+            qasm=qasm.replace("$%d "%i,"$%d "%QBIT_MAP2[i])
+        
+        #self._logger.info("Replacing SC gate by RX(pi/2) as a temporal fix")
+        #qasm=qasm.replace("SX ","rx(pi/2) ").replace("sx ","rx(pi/2) ")
+        #self._logger.debug("Final submitted circuit %s"%qasm)
+        return qasm
             
-            
+    def _to_qasm2(self,c):
+        self._logger.debug("Converting to OPENQASM 2.0")
+        qasm=qasm2.dumps(c)
+        self._logger.debug("Circuit to transform:\n%s"%qasm )
+        qasm=re.sub("\\ngate rzx.*\\n","\\n",qasm)
+        #qasm=re.sub("\\nopaque delay.*","",qasm)
+        qasm=re.sub("\\ngate ecr.*\\n","\\ngate ecr q0, q1 {};\\n",qasm)
+        qasm=qasm.replace("\n","")       
+
+        if re.search("delay.*", qasm):
+            raise QmioException("Delay instruction is not supported in OpenQASM 2.0. Please, although could be slower, user option 'output_qasm3' to run this circuit.")
+        return qasm
     
+    def _to_openpulse(self,c):
+        if self._builder==None:
+            self._builder=QPBuilder(logging_level=self._logger.level)
+        return self._builder.build_program(c)
     
-    def run(self, run_input: Union[Union[QuantumCircuit,Schedule, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
+    def run(self, run_input: Union[Union[QuantumCircuit,Schedule,ScheduleBlock, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
         """Run on QMIO QPU. This method is Synchronous, so it will wait for the results from the QPU
 
         Args:
@@ -414,7 +450,7 @@ class QmioBackend(BackendV2):
         if isinstance(run_input,str) and not "OPENQASM" in run_input:
             raise QmioException("Input seems not to be a valid OPENQASM 3.0 file...")
         
-        if isinstance(run_input,QuantumCircuit) or isinstance(run_input,Schedule) or isinstance(run_input,str):
+        if isinstance(run_input,QuantumCircuit) or isinstance(run_input,Schedule) or isinstance(run_input,ScheduleBlock) or isinstance(run_input,str):
             circuits=[run_input]
         else:
             circuits=run_input
@@ -448,32 +484,15 @@ class QmioBackend(BackendV2):
                 c=circuit
 
             #print("Metadata",c.metadata)
-            if isinstance(c,QuantumCircuit) or isinstance(c,Schedule):
+            if isinstance(c,QuantumCircuit):
                 if output_qasm3:
-                    self._logger.debug("Converting to OPENQASM 3.0")
-                    basis_gates=self.operation_names.copy()
-                    basis_gates.remove('measure')
-                    basis_gates.remove('delay')
-                    qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
-                    self._logger.debug("Obtainded QASM from circuit:%s"%qasm.replace("\n",""))
-                    if "qubit[" in qasm:
-                        c=transpile(c,self,optimization_level=0)
-                        qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
-                    #print("Antes:\n",qasm)
-                    for i in range(self.num_qubits-1,-1,-1):
-                        #print("$%d;"%i,"$%d;"%QBIT_MAP2[i])
-                        qasm=qasm.replace("$%d;"%i,"$%d;"%QBIT_MAP2[i])
-                        qasm=qasm.replace("$%d,"%i,"$%d,"%QBIT_MAP2[i])
-                        qasm=qasm.replace("$%d "%i,"$%d "%QBIT_MAP2[i])
+                    qasm=self._to_qasm3(c)
                 else:
-                    self._logger.debug("Converting to OPENQASM 2.0")
-                    qasm=qasm2.dumps(c)
-                    self._logger.debug("Circuit to transform:\n%s"%qasm )
-                    qasm=re.sub("\\ngate rzx.*\\n","\\n",qasm)
-                    #qasm=re.sub("\\nopaque delay.*","",qasm)
-                    qasm=re.sub("\\ngate ecr.*\\n","\\ngate ecr q0, q1 {};\\n",qasm)
-                    qasm=qasm.replace("\n","")
+                    qasm=self._to_qasm2(c)
                 #print(qasm)
+            elif isinstance(c,Schedule) or isinstance(c,ScheduleBlock):
+                qasm, csize=self._to_openpulse(c)
+                
             else:
                 qasm=c
 
@@ -542,7 +561,11 @@ class QmioBackend(BackendV2):
                 circuit.circuit=c_copy
                 circuit.name="QASM"
                 c=circuit
-                print(c)
+            elif isinstance(c,Schedule) or isinstance(c,ScheduleBlock):
+                memory_slots=csize
+                creg_sizes.append(csize)
+                qreg_sizes.append(csize)
+                n_qubits=csize
             else:
                 for c1 in circuit.cregs:
                     creg_sizes.append([c1.name,c1.size])
