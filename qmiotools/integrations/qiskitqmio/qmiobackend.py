@@ -12,9 +12,10 @@ from qiskit.pulse import Schedule
 from qiskit.result.models import ExperimentResult, ExperimentResultData
 from qiskit.result import Result, Counts  
 from qiskit.qobj import QobjExperimentHeader
-from qiskit import qasm3, transpile
+from qiskit import qasm2, qasm3, transpile
 from qiskit.qobj.utils import MeasLevel
 
+import numpy as np
 import math
 import uuid
 import atexit
@@ -24,11 +25,14 @@ from datetime import date,datetime
 from typing import Union, List, Optional, Dict,  Any, TYPE_CHECKING, Union, cast
 from dataclasses import dataclass
 import warnings
+import re
 
-from ..exceptions import QPUException, QmioException
-from .utils import Calibrations 
-from ..version import VERSION
-from ..data import QBIT_MAP, QUBIT_POSITIONS
+from ...exceptions import QPUException, QmioException
+from ..utils import Calibrations 
+from ...version import VERSION
+from ...data import QBIT_MAP, QUBIT_POSITIONS
+from .qmiojob import QmioJob
+from .flattencircuit import FlattenCircuit
 
 
 from qmio import QmioRuntimeService
@@ -51,48 +55,6 @@ QBIT_MAP=[i for i in range(32)]
 import logging
 
 
-class QmioJob(JobV1):
-    """
-
-    A class to return the results of a Job following the structure of :py:class:`qiskit.providers.JobV1`"""
-
-    def __init__(
-        self,
-        backend: Optional[BackendV2],
-        job_id: str,
-        jobstatus: JobStatus = JobStatus.INITIALIZING,
-        result: Result = None,
-        **kwargs 
-    ):
-        """Initializes the synchronous job."""
-
-        super().__init__(backend, job_id, **kwargs)
-        self._jobstatus=jobstatus
-        self._result=result
-        self.version=VERSION
-        
-    def submit(self) -> None:
-        """
-        
-        This method is not necessary for this backend, because currently the execution is synchronous
-
-
-        """
-        raise NotImplemented("Not necessary for this backend")
-
-    def result(self) -> Result:   
-        return self._result
-        
-        
-
-    def cancel(self) -> None:
-        """
-        This method is not necessary for this backend, because currently the execution is synchronous
-        """
-        raise NotImplemented("Not necessary for this backend")
-
-    def status(self) -> Any:
-        return self._jobstatus
 
 @dataclass
 class QasmCircuit():
@@ -103,12 +65,7 @@ class QasmCircuit():
     metadata={}
 
 
-
-
-
-
-
-DEFAULT_OPTIONS=Options(shots=10000,memory=False,repetition_period=None,res_format="binary_count")
+DEFAULT_OPTIONS=Options(shots=10000,memory=False,repetition_period=None,res_format="binary_count",output_qasm3=False)
 FORMATS=["binary_count","raw","binary","squash_binary_result_arrays"]
 DT=0.5*1e-9 #0.5ns
 
@@ -328,6 +285,10 @@ class QmioBackend(BackendV2):
     def _default_options(cls):
         return DEFAULT_OPTIONS
     
+    @classmethod
+    def _formats(cls):
+        return FORMATS
+    
     @property
     def max_circuits(self):
         return self._max_circuits
@@ -394,13 +355,17 @@ class QmioBackend(BackendV2):
         Args:
             run_input (QuantumCircuit or Schedule or Str - a QASM string - or list): An
                 individual or a list of :class:`.QuantumCircuit`,
-                or :class:`~qiskit.pulse.Schedule` or a string with a QASM 3.0 objects to
+                or :class:`~qiskit.pulse.Schedule` (soon) or a string with a QASM 2.0/3.0 objects to
                 run on the backend.
             options: Any kwarg options to pass to the backend for running the
                 config. If a key is also present in the options
                 attribute/object then the expectation is that the value
                 specified will be used instead of what's set in the options
-                object.
+                object. Default options can be obtained with :meth:`_default_options`
+                Some specific options for Qmio are: 
+                * repetition_period, slot of time between shot starts (default, None. Uses the default that it is calibrated); 
+                * res_format, format for the output (default, "binary_count". You can get the possible formats with :meth:`_formats`)
+                * output_qasm3, if convert the QuantumCircuit to OpenQASM 3.0 instead of OpenQASM 2.0 - default-)
 
         Returns:
             :class:`.qiskitqmio.QmioJob`: The job object for the run
@@ -435,6 +400,11 @@ class QmioBackend(BackendV2):
                 res_format=options["res_format"]
             else:
                 res_format=self._options.get("res_format")
+                
+            if "output_qasm3" in options:
+                output_qasm3=options["output_qasm3"]
+            else:
+                output_qasm3=self._options.get("output_qasm3")
         
         self._logger.info("Requested parameters: Shots %d - memory %s - Repetition_period %s - Res_format %s"%(shots, memory, str(repetition_period), res_format))
                
@@ -479,48 +449,78 @@ class QmioBackend(BackendV2):
 
             #print("Metadata",c.metadata)
             if isinstance(c,QuantumCircuit) or isinstance(c,Schedule):
-                basis_gates=self.operation_names.copy()
-                basis_gates.remove('measure')
-                basis_gates.remove('delay')
-                qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
-                self._logger.debug("Obtainded QASM from circuit:%s"%qasm.replace("\n",""))
-                if "qubit[" in qasm:
-                    c=transpile(c,self,optimization_level=0)
+                if output_qasm3:
+                    self._logger.debug("Converting to OPENQASM 3.0")
+                    basis_gates=self.operation_names.copy()
+                    basis_gates.remove('measure')
+                    basis_gates.remove('delay')
                     qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
-                #print("Antes:\n",qasm)
-                for i in range(self.num_qubits-1,-1,-1):
-                    #print("$%d;"%i,"$%d;"%QBIT_MAP2[i])
-                    qasm=qasm.replace("$%d;"%i,"$%d;"%QBIT_MAP2[i])
-                    qasm=qasm.replace("$%d,"%i,"$%d,"%QBIT_MAP2[i])
-                    qasm=qasm.replace("$%d "%i,"$%d "%QBIT_MAP2[i])
+                    self._logger.debug("Obtainded QASM from circuit:%s"%qasm.replace("\n",""))
+                    if "qubit[" in qasm:
+                        c=transpile(c,self,optimization_level=0)
+                        qasm=qasm3.dumps(c, includes=[], basis_gates=basis_gates).replace("\n","")
+                    #print("Antes:\n",qasm)
+                    for i in range(self.num_qubits-1,-1,-1):
+                        #print("$%d;"%i,"$%d;"%QBIT_MAP2[i])
+                        qasm=qasm.replace("$%d;"%i,"$%d;"%QBIT_MAP2[i])
+                        qasm=qasm.replace("$%d,"%i,"$%d,"%QBIT_MAP2[i])
+                        qasm=qasm.replace("$%d "%i,"$%d "%QBIT_MAP2[i])
+                else:
+                    self._logger.debug("Converting to OPENQASM 2.0")
+                    qasm=qasm2.dumps(c)
+                    self._logger.debug("Circuit to transform:\n%s"%qasm )
+                    qasm=re.sub("\\ngate rzx.*\\n","\\n",qasm)
+                    #qasm=re.sub("\\nopaque delay.*","",qasm)
+                    qasm=re.sub("\\ngate ecr.*\\n","\\ngate ecr q0, q1 {};\\n",qasm)
+                    qasm=qasm.replace("\n","")
                 #print(qasm)
             else:
                 qasm=c
 
-
+            # parche
+            #self._logger.info("Replacing SC gate by RX(pi/2) as a temporal fix")
+            #qasm=qasm.replace("SX ","rx(pi/2) ").replace("sx ","rx(pi/2) ")
+            #self._logger.debug("Final submitted circuit %s"%qasm)
+            
             remain_shots=shots
             ExpDict={}
+            ExpList=[]
             self._logger.info("QASM to execute %s"%qasm)
             warning_raised = False
             while (remain_shots > 0):
                 self._logger.info("Requesting SHOTS=%d"%min(self._max_shots,remain_shots))
+                if memory:
+                    res_format="raw"
                 results = self._QPUBackend.run(circuit=qasm, shots=min(self._max_shots,remain_shots),repetition_period=repetition_period,res_format=res_format)
 
                 self._logger.debug("Results:%s"%results)
                 if "Exception" in results:
                     raise QPUException(results["Exception"])
+                
                 try:
                     r=results["results"][list(results["results"].keys())[0]]
                 except:
                     raise QPUException("QPU does not return results")
-                for k in r:
-                    if not memory:
+                
+                if not memory:
+                    for k in r:
                         key=hex(int(k[::-1],base=2))
                         ExpDict[key]=ExpDict[key]+r[k] if key in ExpDict else r[k]
-                    else:
-                        raise QmioException("Binary for the next version")
+                else:
+                    self._logger.debug("Output with memory")
+                    a=np.array(r)
+                    b=(a<0).astype(int).astype(str)
+                    for i in range(b.shape[1]):
+                        s=""
+                        for j in b[:,i][::-1]: s=s+j
+                        key=hex(int(s,base=2))
+                        ExpDict[key]=ExpDict[key]+1 if key in ExpDict else 1
+                        ExpList.append(key)
+                        #self._logger.debug("QmioException - Binary for the next version- ")
+                        #raise QmioException("Binary for the next version")
+                    
                 remain_shots=remain_shots-self._max_shots
-
+                
             if isinstance(c,QuantumCircuit):
                 metadata=c.metadata
             else:
@@ -561,15 +561,19 @@ class QmioBackend(BackendV2):
             dd={
                 'shots': shots,
                 'success': True,
-                'data': {
-
+                'header': header,
+                }
+            if not memory:
+                dd['data']={
                     'counts': ExpDict,
                     'metadata': metadata,
-                },
-                'header': header,
-
                 }
-
+            else:
+                dd['data']={
+                    'counts': ExpDict,
+                    'memory': ExpList,
+                    'metadata': metadata,
+                }
             ExpResult.append(dd)
 
         result_dict = {
@@ -587,102 +591,8 @@ class QmioBackend(BackendV2):
         results=Result.from_dict(result_dict)
 
         job=QmioJob(backend=self,job_id=uuid.uuid4(), jobstatus=JobStatus.DONE, result=results)
-        
+       
         return job
     
     
-    
-def FlattenCircuit(circ: QuantumCircuit) -> QuantumCircuit:
-    """
-    Method to convert a Qiskit circuit with several ClassicalRegisters in a single ClassicalRegister
-    
-    Args:
-        circ: A QuantumCircuit
-        
-    Returns: 
-        A new QuantumCircuit with a single ClassicalRegister
-    """
-    d=QuantumCircuit()
-    [d.add_register(i) for i in circ.qregs]
-    j=0
-
-    registers={}
-    for i in circ.cregs:
-        registers[i.name]=j
-        j=j+i.size
-        #print(i)
-        #print(j)
-    #print(registers)
-    ag=ClassicalRegister(j,"C")
-    d.add_register(ag)
-    #print(j) # Probar a hacerlo en vectorial
-    for i in circ.data:
-        if i.operation.name == "measure":
-            j=i.clbits[0]
-
-            d.measure(i.qubits[0],ag[registers[j._register.name]+j._index])
-            #print(i.clbits[0])
-
-        else:
-            d.data.append(i)
-    d.name=circ.name
-    return d
-
-
-
-from qiskit_aer import AerSimulator
-from qiskit_aer.noise import NoiseModel
-
-def FakeQmio(calibration_file: str=None, thermal_relaxation: bool = True, temperature: float = 0 , gate_error: bool=False, readout_error: bool=False, logging_level: int=logging.NOTSET, logging_filename: str=None,  **kwargs) -> AerSimulator:
-    """
-    Create a Fake backend for Qmio that uses the last calibrations and AerSimulator. 
-
-    Args:
-        calibration_file (str): A path to a valid calibration file. If the path is **None** (default), the last calibration is loaded.
-        thermal_relaxation (bool): If True, the noise model will include the thermal relaxation using the data from the calibration. Default: *True*
-        temperature (float): the temperature in mK. If it is different of 0 (default). This is equivalent temperature used to calculate the probability of being |1> due to thermal effects. See publication arxiv:1412.2772. This temperature is passed to AerSimulator, that initially set it equally for all qubits, despite that could be different.
-        gate_error (bool): Flag to include (True) or not (False. Default option) the gate errors in the model.
-        readout_error (bool): Flag to include (True) or not (False. Default) the readout error from the calibrations file.
-        logging_level (int): flag to indicate the logging level. Better if use the logging package levels. Default logging.NOTSET
-        logging_filename (Str):  Path to store the logging messages. Default *None*, i.e., output in stdout
-        **kwargs: other parameters to pass directly to AerSimulator
-
-    Returns:
-        (AerSimulator): A valid backend including the defined noise model.
-
-    Raises:
-        QmioException: if the configuration file could not be found. 
-
-    """
-    logger=logging.getLogger("FakeQmio")
-    logger.setLevel(logging_level)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')    
-    if logging_filename!=None:
-        handler = logging.FileHandler(logging_filename)
-    else:
-        import sys
-        handler = logging.StreamHandler(sys.stdout)
-
-    handler.setFormatter(formatter)
-    if (logger.hasHandlers()):
-        logger.handlers.clear()
-    logger.addHandler(handler)
-
-    logger.info("Logging FakeQmio started:")
-    handler.flush()
-    logger.info("Reading QmioBackend data")
-    qmio=QmioBackend(calibration_file,logging_level=logging_level, logging_filename=logging_filename)
-    noise_model = NoiseModel.from_backend(
-        qmio, thermal_relaxation=thermal_relaxation,
-        temperature=temperature,
-        gate_error=gate_error,
-        readout_error=readout_error)
-    
-    
-    cls= AerSimulator.from_backend(qmio, noise_model=noise_model, **kwargs)
-    cls.name = "FakeQmio"
-    cls.description ="Fake backend for Qmio that uses the last calibrations and AerSimulator"
-    logger.info("Created AerSimulator for Qmio with calibration_file:%s, thermal_relaxation: %s, temperature: %.2fmK , gate_error:%s, readout_error: %s "%(qmio._calibration_file, thermal_relaxation, temperature, gate_error, readout_error))
-    return cls
-        
     
