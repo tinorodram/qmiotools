@@ -33,7 +33,7 @@ from ...version import VERSION
 from ...data import QBIT_MAP, QUBIT_POSITIONS
 from .qmiojob import QmioJob
 from .flattencircuit import FlattenCircuit
-from .qpebuilder import QPBuilder
+from .opexporter import OPExporter
 
 
 from qmio import QmioRuntimeService
@@ -381,9 +381,9 @@ class QmioBackend(BackendV2):
         return qasm
     
     def _to_openpulse(self,c):
-        if self._builder==None:
-            self._builder=QPBuilder(logging_level=self._logger.level)
-        return self._builder.build_program(c)
+        if self._exporter==None:
+            self._builder=OPExporter(logging_level=self._logger.level)
+        return self._builder.replace("\n","")
     
     def run(self, run_input: Union[Union[QuantumCircuit,Schedule,ScheduleBlock, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
         """Run on QMIO QPU. This method is Synchronous, so it will wait for the results from the QPU
@@ -485,13 +485,19 @@ class QmioBackend(BackendV2):
 
             #print("Metadata",c.metadata)
             if isinstance(c,QuantumCircuit):
-                if output_qasm3:
-                    qasm=self._to_qasm3(c)
-                else:
-                    qasm=self._to_qasm2(c)
+                try:
+                    if output_qasm3:
+                        qasm=self._to_qasm3(c)
+                    else:
+                        qasm=self._to_qasm2(c)
+                except:
+                    try:
+                        qasm=self._to_openpulse(c)
+                    except:
+                        raise QmioException("Error converting circuit: %s"%c.name)
                 #print(qasm)
             elif isinstance(c,Schedule) or isinstance(c,ScheduleBlock):
-                qasm, csize=self._to_openpulse(c)
+                qasm=self._to_openpulse(c)
                 
             else:
                 qasm=c
@@ -562,10 +568,13 @@ class QmioBackend(BackendV2):
                 circuit.name="QASM"
                 c=circuit
             elif isinstance(c,Schedule) or isinstance(c,ScheduleBlock):
-                memory_slots=csize
-                creg_sizes.append(csize)
-                qreg_sizes.append(csize)
-                n_qubits=csize
+                for c1 in circuit.cregs:
+                    creg_sizes.append([c1.name,c1.size])
+                    memory_slots+=c1.size
+
+                for c1 in circuit.qregs:
+                    qreg_sizes.append([c1.name,c1.size])
+                n_qubits=len(circuit.qubits)
             else:
                 for c1 in circuit.cregs:
                     creg_sizes.append([c1.name,c1.size])

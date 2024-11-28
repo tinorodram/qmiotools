@@ -8,7 +8,7 @@
 import os
 import sys
 from sphinx.ext.autodoc import between
-#from qmiotools.version import VERSION
+from ...qmiotools.version import VERSION
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -16,6 +16,7 @@ from sphinx.ext.autodoc import between
 sys.path.append(os.path.abspath('../../'))
 sys.path.append(os.path.abspath('../../qmiotools/'))
 sys.path.append(os.path.abspath('../../qmiotools/integrations'))
+sys.path.append(os.path.abspath('../../qmiotools/integrations/qiskitqmio'))
 
 
 def setup(app):
@@ -33,7 +34,7 @@ def setup(app):
 project = 'Qmiotools'
 copyright = '2024, Andrés Gómez (CESGA)'
 author = 'Andrés Gómez (CESGA)'
-release = '0.1.1' 
+release = VERSION 
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
