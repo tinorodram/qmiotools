@@ -16,14 +16,14 @@ class OPExporter:
             warning.Warning("Qiskit version %s could not be compatible with Schedule")
             
     def dumps(self, Schedule):
-       """Convert the schedule to OpenPulse, returning the result as a string."""
+        """Convert the schedule to OpenPulse, returning the result as a string."""
 
-       with io.StringIO() as stream:
-           self.dump(Schedule, stream)
-           return stream.getvalue()
+        with io.StringIO() as stream:
+            self.dump(Schedule, stream)
+            return stream.getvalue()
     
     def dump(self, Schedule, program):
-       """Convert the schedule to OpenPulse, dumping the result to a file or text stream."""
+        """Convert the schedule to OpenPulse, dumping the result to a file or text stream."""
         builder = QPBuilder(logging_level=logger.level)
         sentences=builder.build_program(Schedule)
         head=builder.build_header()
