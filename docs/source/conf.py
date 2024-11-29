@@ -52,8 +52,16 @@ extensions = [
    'sphinx.ext.doctest', 
    'sphinx.ext.mathjax',
    'sphinx.ext.napoleon',
-   'sphinx_automodapi.automodapi'
+   'sphinx_automodapi.automodapi',
+   'sphinx.ext.intersphinx',
 ]
+
+
+intersphinx_mapping = {
+    "qiskit-aer": ("https://qiskit.github.io/qiskit-aer/", None),
+    "qiskit": ("https://docs.quantum.ibm.com/api/qiskit/", None),
+    "python": ("https://docs.python.org/3/", None)
+}
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx", "zmq"]
 
@@ -71,10 +79,13 @@ autosummary_generate_overwrite = False
 master_doc = 'index'
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
+
+html_theme = "bizstyle"
+html_last_updated_fmt = "%Y/%m/%d"
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'classic'
+#html_theme = 'classic'
 html_static_path = ['_static']
 
 # If true, links to the reST sources are added to the pages.

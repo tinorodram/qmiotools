@@ -3,7 +3,7 @@ from ...version import VERSION
 
 import logging
 
-logger=logging.getLogger("FakeQmio/%s"%VERSION)
+logger=logging.getLogger('FakeQmio/%s'%VERSION)
 
 
 from qiskit_aer import AerSimulator
