@@ -55,7 +55,7 @@ extensions = [
    'sphinx_automodapi.automodapi'
 ]
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
-    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx"]
+    "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx", "zmq"]
 
 autodoc_default_options = {
     'members': '',
@@ -65,8 +65,12 @@ autodoc_default_options = {
 }
 exclude_paterns = ["**/qmiotools.version.rst"]
 
+autosummary_generate = True
+autosummary_generate_overwrite = False
+
 master_doc = 'index'
 napoleon_google_docstring = True
+napoleon_numpy_docstring = True
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
