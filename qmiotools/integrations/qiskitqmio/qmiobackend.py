@@ -134,7 +134,7 @@ class QmioBackend(BackendV2):
         self._logger = logging.getLogger("QmioBackend")
         self._QPUBackend=None
         self._calibration_file=None
-        self._builder=None
+        self._exporter=None
         #
         # Logging activate
         #
@@ -382,8 +382,8 @@ class QmioBackend(BackendV2):
     
     def _to_openpulse(self,c):
         if self._exporter==None:
-            self._builder=OPExporter(logging_level=self._logger.level)
-        return self._builder.replace("\n","")
+            self._exporter=OPExporter(logging_level=self._logger.level)
+        return self._exporter.dumps(c).replace("\n","")
     
     def run(self, run_input: Union[Union[QuantumCircuit,Schedule,ScheduleBlock, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
         """Run on QMIO QPU. This method is Synchronous, so it will wait for the results from the QPU
@@ -568,13 +568,31 @@ class QmioBackend(BackendV2):
                 circuit.name="QASM"
                 c=circuit
             elif isinstance(c,Schedule) or isinstance(c,ScheduleBlock):
-                for c1 in circuit.cregs:
-                    creg_sizes.append([c1.name,c1.size])
-                    memory_slots+=c1.size
+                pointer=0
+                try:
+                    while len(qasm)>0:
+                        b=qasm[pointer:].index("bit[")+4
+                        q=qasm[pointer+b:].index("]")
+                        
+                        size=int(qasm[pointer+b:pointer+b+q])
+                        p=qasm[pointer+b+q:].index(";")
+                        name=qasm[pointer+b+q+1:pointer+b+q+p].strip()
+                        pointer=pointer+b+p+1
+                        
+                        creg_sizes.append([name,size])
+                        memory_slots+=size
+                except:
+                    pass
 
-                for c1 in circuit.qregs:
-                    qreg_sizes.append([c1.name,c1.size])
-                n_qubits=len(circuit.qubits)
+                try:
+                    for c1 in circuit.qregs:
+                        qreg_sizes.append([c1.name,c1.size])
+                except:
+                    qreg_sizes=creg_sizes.copy()
+                try:
+                    n_qubits=len(circuit.qubits)
+                except:
+                    n_qubits=memory_slots
             else:
                 for c1 in circuit.cregs:
                     creg_sizes.append([c1.name,c1.size])
