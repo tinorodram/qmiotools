@@ -23,7 +23,7 @@ import atexit
 from collections import Counter, OrderedDict
 from datetime import date,datetime
 from typing import Union, List, Optional, Dict,  Any, TYPE_CHECKING, Union, cast
-from dataclasses import dataclass
+
 import warnings
 import re
 
@@ -34,36 +34,17 @@ from ...data import QBIT_MAP, QUBIT_POSITIONS
 from .qmiojob import QmioJob
 from .flattencircuit import FlattenCircuit
 from .opexporter import OPExporter
+from .qasmcircuit import QasmCircuit
 
 
 from qmio import QmioRuntimeService
 from qmio.backends import QPUBackend
 
 
-
-#QUBIT_POSITIONS=[(1,2),(1,3),(1,4),(1,5),(1,6),
-#            (2,6.5),(2,4.5),(2,2.5),
-#            (3,1),(3,2),(3,3),(3,4),(3,5),
-#            (4,5.5),(4,3.5),(4,1.5),
-#            (5,1),(5,2),(5,3),(5,4),(5,5),(5,6),
-#            (6,6.5),(6,4.5),(6,2.5),(6,1),
-#            (7,1),(7,2),(7,3),(7,4),(7,5),(7,6)]
-
-#QBIT_MAP=[2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
 QBIT_MAP2=QBIT_MAP.copy()
 QBIT_MAP=[i for i in range(32)]
 
 import logging
-
-
-
-@dataclass
-class QasmCircuit():
-    """
-    A dataclass for storing basic data to return data of one execution for inputs in OpenQasm"""
-    circuit=None
-    name=None
-    metadata={}
 
 
 DEFAULT_OPTIONS=Options(shots=10000,memory=False,repetition_period=None,res_format="binary_count",output_qasm3=False)
@@ -77,16 +58,23 @@ class QmioBackend(BackendV2):
     Args:
             calibration_file (Str or None):  full path to a calibration file. Default *None* and loads the last calibration file from the directory indicated by environment QMIO_CALIBRATIONS
             
-            logging_level (int): flag to indicate the logging level. Better if use the logging package levels. Default logging.NOTSET
+            logging_level (int): flag to indicate the logging level. Better if use the :py:mod:`logging` package levels. Default :py:data:`logging.NOTSET`
             
-            logging_filename (Str):  Path to store the logging messages. Default *Nonei*, i.e., output in stdout
+            logging_filename (str):  Path to store the logging messages. Default *None*, i.e., output in stdout
             
-            kwargs: Other parameters to pass to Qisbit BackendV2 class
+            tunnel_time_limit (str): time limit user specified for stablish interactive tunnels (for example, "00:15:00" indicates a limit of 15 minutes)
+            
+            reservation_name (str): reservation name user specified
+            
+            kwargs: Other parameters to pass to Qiskit :py:class:`qiskit.providers.BackendV2` class
+            
+            
 
     
     It uses :py:class:`qmio.QmioRuntimeService` to submit circuits to the QPU. By default, the calibrations are read from the last JSON file in the directory set by environ variable QMIO_CALIBRATIONS, but accepts a direct filename to use instead of.
     
-    The execution using the method run is synchronous.
+    .. attention:: 
+        The execution using the method run is synchronous.
     
     To create a new backend use::
     
@@ -125,16 +113,20 @@ class QmioBackend(BackendV2):
     """
     
 
-    def __init__(self, calibration_file: str=None, logging_level: int=logging.NOTSET, logging_filename: str=None, **kwargs):
+    def __init__(self, calibration_file: str=None, logging_level: int=logging.NOTSET, logging_filename: str=None,
+                 tunnel_time_limit: str=None,
+                 reservation_name: str=None, **kwargs):
         
         self._provider=None
         self._name="Qmio"
         self._description="CESGA Qmio"
         self._backend_version=VERSION
-        self._logger = logging.getLogger("QmioBackend")
+        self._logger = logging.getLogger("QmioBackend/%s"%VERSION)
         self._QPUBackend=None
         self._calibration_file=None
         self._exporter=None
+        self._reservation_name=reservation_name
+        self._tunnel_time_limit=tunnel_time_limit
         #
         # Logging activate
         #
@@ -287,7 +279,10 @@ class QmioBackend(BackendV2):
         return DEFAULT_OPTIONS
     
     @classmethod
-    def _formats(cls):
+    def formats(cls):
+        """
+            Returns the possible output formats supported by QMIO.
+        """
         return FORMATS
     
     @property
@@ -303,7 +298,8 @@ class QmioBackend(BackendV2):
         if self._QPUBackend is not None:
             self._QPUBackend.disconnect()
         else:
-            self._QPUBackend=QPUBackend()
+            self._logger.info("Connecting with parameters - reservation_name %s - tunnel_time_limit %s"%(self._tunnel_time_limit,self._reservation_name))
+            self._QPUBackend=QPUBackend(tunnel_time_limit=self._tunnel_time_limit, reservation_name=self._reservation_name)
         
         self._QPUBackend.connect()
     
@@ -387,24 +383,33 @@ class QmioBackend(BackendV2):
     
     def run(self, run_input: Union[Union[QuantumCircuit,Schedule,ScheduleBlock, str],List[Union[QuantumCircuit,Schedule,str]]], **options) -> QmioJob:
         """Run on QMIO QPU. This method is Synchronous, so it will wait for the results from the QPU
-
+        
+        
         Args:
             run_input (QuantumCircuit or Schedule or Str - a QASM string - or list): An
-                individual or a list of :class:`.QuantumCircuit`,
-                or :class:`~qiskit.pulse.Schedule` (soon) or a string with a QASM 2.0/3.0 objects to
+                individual or a list of :class:`~qiskit.circuit.QuantumCircuit`,
+                or :class:`~qiskit.pulse.Schedule` or a string with a QASM 2.0/3.0 objects to
                 run on the backend.
             options: Any kwarg options to pass to the backend for running the
                 config. If a key is also present in the options
                 attribute/object then the expectation is that the value
                 specified will be used instead of what's set in the options
                 object. Default options can be obtained with :meth:`_default_options`
-                Some specific options for Qmio are: 
-                * repetition_period, slot of time between shot starts (default, None. Uses the default that it is calibrated); 
-                * res_format, format for the output (default, "binary_count". You can get the possible formats with :meth:`_formats`)
+                
+                Some specific options for Qmio are:
+                
+                * memory: if format is binary_counts (the defualt format), returns also all the sequence.
+                * repetition_period, slot of time between shot starts (default, **None**. Uses the default that it is calibrated)
+                * res_format, format for the output (default, 'binary_count'. You can get the possible formats with :meth:`formats`)
                 * output_qasm3, if convert the QuantumCircuit to OpenQASM 3.0 instead of OpenQASM 2.0 - default-)
+                
+                
+        .. attention::
+                When memory option is specified for binary_counts, take into account that the process of converting from raw data to shots is done by this class and not by Qmio QPU. 
+                The split is done using values less than 0 or grand than 0.
 
         Returns:
-            :class:`.qiskitqmio.QmioJob`: The job object for the run
+            :class:`QmioJob`: The job object for the run
         
         Raises:
             QPUException: if there is one error in the QPU
@@ -416,6 +421,7 @@ class QmioBackend(BackendV2):
             memory=options.get("memory",default=self._options.get("memory"))
             repetition_period=options.get("repetition_period",default=self._options.get("repetition_period"))
             res_format=options.get("res_format",default=self._options.get("res_format"))
+            output_qasm3=options.get("output_qasm3",default=self._options.get("output_qasm3"))
         else:
             if "shots" in options:
                 shots=options["shots"]
@@ -441,6 +447,8 @@ class QmioBackend(BackendV2):
                 output_qasm3=options["output_qasm3"]
             else:
                 output_qasm3=self._options.get("output_qasm3")
+            
+
         
         self._logger.info("Requested parameters: Shots %d - memory %s - Repetition_period %s - Res_format %s"%(shots, memory, str(repetition_period), res_format))
                
@@ -463,8 +471,7 @@ class QmioBackend(BackendV2):
         
         if self._QPUBackend is None:
             self._logger.debug("Starting backend")
-            self._QPUBackend=QPUBackend()
-            self._QPUBackend.connect()
+            self.connect()
                           
         
         job_id=uuid.uuid4()
@@ -515,8 +522,10 @@ class QmioBackend(BackendV2):
             while (remain_shots > 0):
                 self._logger.info("Requesting SHOTS=%d"%min(self._max_shots,remain_shots))
                 if memory:
-                    res_format="raw"
-                results = self._QPUBackend.run(circuit=qasm, shots=min(self._max_shots,remain_shots),repetition_period=repetition_period,res_format=res_format)
+                    _res_format="raw"
+                else:
+                    _res_format= res_format
+                results = self._QPUBackend.run(circuit=qasm, shots=min(self._max_shots,remain_shots),repetition_period=repetition_period,res_format=_res_format)
 
                 self._logger.debug("Results:%s"%results)
                 if "Exception" in results:
@@ -525,27 +534,43 @@ class QmioBackend(BackendV2):
                 try:
                     r=results["results"][list(results["results"].keys())[0]]
                 except:
-                    raise QPUException("QPU does not return results")
+                    if res_format == "raw":
+                        ExpList.append(results["results"])
+                    else:
+                        raise QPUException("QPU does not return results")
                 
-                if not memory:
-                    for k in r:
-                        key=hex(int(k[::-1],base=2))
-                        ExpDict[key]=ExpDict[key]+r[k] if key in ExpDict else r[k]
+                if res_format== "binary_count":
+                    if not memory:
+                        for k in r:
+                            key=hex(int(k[::-1],base=2))
+                            ExpDict[key]=ExpDict[key]+r[k] if key in ExpDict else r[k]
+                    else:
+                        self._logger.debug("Output of type %s in memory register"%res_format)
+                        a=np.array(r)
+                        b=(a<0).astype(int).astype(str)
+                        for i in range(b.shape[1]):
+                            s=""
+                            for j in b[:,i][::-1]: s=s+j
+                            key=hex(int(s,base=2))
+                            ExpDict[key]=ExpDict[key]+1 if key in ExpDict else 1
+                            ExpList.append(key)
+                            #self._logger.debug("QmioException - Binary for the next version- ")
+                            #raise QmioException("Binary for the next version")
                 else:
-                    self._logger.debug("Output with memory")
-                    a=np.array(r)
-                    b=(a<0).astype(int).astype(str)
-                    for i in range(b.shape[1]):
-                        s=""
-                        for j in b[:,i][::-1]: s=s+j
-                        key=hex(int(s,base=2))
-                        ExpDict[key]=ExpDict[key]+1 if key in ExpDict else 1
-                        ExpList.append(key)
-                        #self._logger.debug("QmioException - Binary for the next version- ")
-                        #raise QmioException("Binary for the next version")
+                    self._logger.debug("Output of type %s in memory register"%res_format)
+                    try:
+                        s=ExpList[0].copy()
+                        for k in len(s):
+                            s[k].append(r[k])
+                    except:
+                        s=r.copy()
+                    ExpList=s
+                    
                     
                 remain_shots=remain_shots-self._max_shots
-                
+            
+            
+            
             if isinstance(c,QuantumCircuit):
                 metadata=c.metadata
             else:
@@ -605,15 +630,15 @@ class QmioBackend(BackendV2):
                            'qreg_sizes':qreg_sizes,'metadata':circuit.metadata}
             #header.update(c.metadata)
 
-            self._logger.debug("Retorno: %s"%ExpDict)
-
-
+            self._logger.debug("Retorno counts: %s"%ExpDict)
+            self._logger.debug("Returning memory: %s"%ExpList)
+            
             dd={
                 'shots': shots,
                 'success': True,
                 'header': header,
                 }
-            if not memory:
+            if (res_format is not "raw") and not memory:
                 dd['data']={
                     'counts': ExpDict,
                     'metadata': metadata,

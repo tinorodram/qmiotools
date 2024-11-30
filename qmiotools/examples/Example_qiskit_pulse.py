@@ -1,16 +1,17 @@
-from qiskit.pulse import Schedule, Play, Drag, DriveChannel, Gaussian, GaussianSquare, Sin, build, Constant, Delay, Drag, Sec$
+from qiskit.pulse import Schedule, Play, Drag, DriveChannel, Gaussian, GaussianSquare, Sin, build, Constant, Delay, Drag, Sech
 from qmiotools.integrations.qiskitqmio import QmioBackend
 
 import math as mt
 from qiskit.pulse import ShiftFrequency, SetFrequency
 from qiskit.pulse import ShiftPhase, SetPhase
 
+import logging
 
 #
 # Create a backend
 #
 
-backend=QmioBackend()
+backend=QmioBackend(logging_level=logging.DEBUG)
 
 #
 # Create the program

@@ -60,7 +60,7 @@ extensions = [
 intersphinx_mapping = {
     "qiskit-aer": ("https://qiskit.github.io/qiskit-aer/", None),
     "qiskit": ("https://docs.quantum.ibm.com/api/qiskit/", None),
-    "python": ("https://docs.python.org/3/", None)
+    "python": ("https://docs.python.org/3/", None),
 }
 autodoc_mock_imports = [ "numpy","scipy", "pandas", "psutil",
     "qiskitqmio","tkbackend", "qiskit", "qiskit_aer", "pytket", "qmio-run", "networkx", "zmq"]

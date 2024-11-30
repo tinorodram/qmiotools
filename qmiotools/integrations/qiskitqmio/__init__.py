@@ -9,6 +9,7 @@ Qiskit
    :toctree: stubs/
 
    QmioBackend
+   QasmCircuit
    FakeQmio
    QmioJob
    FlattenCircuit
@@ -16,6 +17,7 @@ Qiskit
 """
 
 
+from .qasmcircuit import QasmCircuit
 from .qmiobackend import QmioBackend
 from .qmiojob import QmioJob
 from .fakeqmio import FakeQmio

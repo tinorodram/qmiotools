@@ -25,6 +25,11 @@ from ...data import QUBIT_POSITIONS
 from collections import Counter
 import networkx as nx
 from uuid import uuid4
+import atexit
+
+import logging
+
+logger = logging.getLogger("Qmio/"+VERSION)
 
 from pytket.passes import (
     BasePass,
@@ -79,7 +84,7 @@ from pytket._tket.predicates import (
 
 )
 
-from qmio import QmioRuntimeService
+from qmio.backends import QPUBackend
 
 def _QmioArchitecture(calibration_file: str = None):
     """
@@ -236,7 +241,7 @@ def backend_info(self) -> BackendInfo:
         self._backend_info = BackendInfo(
             "Qmio",
             "CESGAQmio",
-            "1.0",
+            VERSION,
             architecture,
             self._gateset,
             supports_fast_feedforward=False,
@@ -312,35 +317,36 @@ def _run_circuit(
             The results of the execution
 
         Raises:
-            :class: `..exceptions.QpuException` if the execution in the QPU fails, including a description of the exception raised by the QPU
+            QPUException. If the execution in the QPU fails, including a description of the exception raised by the QPU
 
         """
+        
+        if self._QPUBackend is None:
+            self._logger.debug("Starting backend")
+            self.connect()
+            
         if valid_check:
             self._check_all_circuits([circuit])
         
-        qasm = circuit_to_qasm_str(circuit).replace("\n","").replace("OPENQASM 2.0","OPENQASM 3.0") #.replace("SX ", "rx(pi/2) ").replace("sx ", "rx(pi/2) ")
-        print(qasm)
+        qasm = circuit_to_qasm_str(circuit).replace("\n","")
+        
                                                                                                            
-        service = QmioRuntimeService()
-        #print(service)
-        with service.backend(name="qpu") as backend:
-            results = backend.run(circuit=qasm, shots=n_shots)
-            if "Exception" in results:
-                raise QPUException(results["Exception"])
-            try:
-                r=results["results"][list(results["results"].keys())[0]]
-            except:
-                raise QPUException("QPU did not return results")
-            print(results)
-        #metrics={"optimized_circuit": qasm, "optimized_instruction_count": circuit.n_gates}
-        #results={"c": {"10": 223, "00": 1777}}
+        results=self._QPUBackend.run(circuit=qasm, shots=n_shots, repetition_period=repetition_period, res_format="binary_count")
+        if "Exception" in results:
+            raise QPUException(results["Exception"])
+        try:
+            r=results["results"][list(results["results"].keys())[0]]
+        except:
+            raise QPUException("QPU did not return results")
         
-        #optimized_circuit=metrics["optimized_circuit"]
-        #ocircuit=circuit_from_qasm_str(optimized_circuit,maxwidth=len(self.backend_info.architecture.nodes))
-        #Check si debería ser esto o n_bits
+        self._logger.debug("Results: %s"%results)
         
         
-        return _convert_to_br(results, circuit, binary)
+        
+        br = _convert_to_br(results, circuit, binary)
+        self._logger.debug("BR: %s"%results)
+        
+        return br
 
         
 
@@ -363,6 +369,7 @@ def _run_circuits(
         :param binary: Flag to ask for raw binary. Default False, returning the counts
         :param repetition_period: Time between two executions of the circuit. 
         :return: List of results
+        :raises: QmioException
 
         """
         if isinstance(n_shots,int):
@@ -373,10 +380,11 @@ def _run_circuits(
             raise QmioException("lengths of circuits (%d) and n_shots (%d) do not match"%(len(circuits),len(n_shots)))
         
         BR=[]
-        print(circuits,N)
+        #print(circuits,N)
         for c,s in zip(circuits,N):
-            print(c,s)
+            self._logger.debug("Running circuit...%s for shots %d"%(c,s))
             BR.append(_run_circuit(self,c,s,valid_check,binary, repetition_period))
+        self._logger.debug("Returning: %s"%BR)
         return BR
     
 def _process_circuits(
@@ -403,7 +411,18 @@ def _process_circuit(
 
 
 class Qmio(Backend):
-    """A pytket Backend wrapping"""
+    """
+    A pytket Backend wrapping
+    
+    Args:
+        calibration_file (str or None):  full path to a calibration file. Default *None* and loads the last calibration file from the directory indicated by environment QMIO_CALIBRATIONS
+            
+        logging_level (int): flag to indicate the logging level. Better if use the :py:mod:`logging` package levels. Default :py:data:`logging.NOTSET`
+            
+        logging_filename (str):  Path to store the logging messages. Default *None*, i.e., output in stdout
+    
+    It uses :py:class:`qmio.QmioRuntimeService` to submit circuits to the QPU. By default, the calibrations are read from the last JSON file in the directory set by environ variable QMIO_CALIBRATIONS, but accepts a direct filename to use instead of."""
+    
     _1Qgateset={
                 OpType.SX,
                 OpType.Rz,
@@ -423,10 +442,40 @@ class Qmio(Backend):
     _backend_info=None
     _backend_version=VERSION
     
-    def __init__(self, calibration_file: str = None, **kwargs):
-        """Create a new instance"""
+    def __init__(self, tunnel_time_limit: str=None, reservation_name: str=None, calibration_file: str = None, logging_level: int=logging.NOTSET, logging_filename: str=None, **kwargs):
+        """Create a new instance of the class
+        
+        """
         self._calibration_file=calibration_file
+        self._logger=logger
+        self._QPUBackend=None
+        self._tunnel_time_limit=tunnel_time_limit
+        self._reservation_name=reservation_name
+    
+        self._logger.setLevel(logging_level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')    
+        if logging_filename!=None:
+            self._handler = logging.FileHandler(logging_filename)
+        else:
+            import sys
+            self._handler = logging.StreamHandler(sys.stdout)
+
+        self._handler.setFormatter(formatter)
+        if (self._logger.hasHandlers()):
+            self._logger.handlers.clear()
+        self._logger.addHandler(self._handler)
+
+        self._logger.info("Logging started:")
+        self._handler.flush()
+        
+        #
+        # Activate Exit
+        #
+        
+        atexit.register(self.__exit__)
+        
         super().__init__(**kwargs)
+        
     backend_info=backend_info
     required_predicates = _required_predicates
     rebase_pass = auto_rebase_pass(_gateset)
@@ -437,6 +486,59 @@ class Qmio(Backend):
     process_circuit = _process_circuit
     run_circuit=_run_circuit
     run_circuits = _run_circuits
+    
+    def connect(self):
+        """
+            This method connect to the QPU. You do not need to connect, but you can if you want. If a connection exits, it is closed and the class is reconnected again
+
+        """
+        self._logger.debug("Connecting backend")
+        if self._QPUBackend is not None:
+            self._QPUBackend.disconnect()
+        else:
+            self._logger.info("Connecting with parameters - reservation_name %s - tunnel_time_limit %s"%(self._tunnel_time_limit,self._reservation_name))
+            self._QPUBackend=QPUBackend(tunnel_time_limit=self._tunnel_time_limit, reservation_name=self._reservation_name)
+        
+        self._QPUBackend.connect()
+    
+    def disconnect(self):
+        """
+            This method closes the connection with the QPU and destroy the QPUBackend instance. It is recommended to do it before exit the program
+        """
+        self._logger.debug("Disconnecting  backend")
+        if self._QPUBackend is not None:
+            self._QPUBackend.disconnect()
+            del self._QPUBackend
+            self._QPUBackend=None
+            
+    def __del__(self):
+        """
+            Internal method to call when the instance of this class is deleted.
+        """
+        
+        if self._handler is not None:
+            self._logger.debug("Deleting instance of QmioBackend")
+            self._logger.removeHandler(self._handler)
+            self._handler=None
+        
+        self._close()
+        atexit.unregister(self.__exit__)
+    
+    def __exit__(self):
+        """
+            Internal method to call on exit. Do not call directly
+        """
+        if self._handler is not None:
+            self._logger.debug("Deleting instance of QmioBackend")
+            self._logger.removeHandler(self._handler)
+            self._handler=None
+        self._close()
+        atexit.unregister(self.__exit__)
+        
+    def _close(self):
+        self.disconnect()
+        del self._QPUBackend
+        self._QPUBackend=None
     
     
     def draw_graph(self):
