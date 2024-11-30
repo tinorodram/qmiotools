@@ -638,7 +638,7 @@ class QmioBackend(BackendV2):
                 'success': True,
                 'header': header,
                 }
-            if (res_format is not "raw") and not memory:
+            if (res_format != "raw") and not memory:
                 dd['data']={
                     'counts': ExpDict,
                     'metadata': metadata,

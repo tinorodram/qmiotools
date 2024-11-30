@@ -1,3 +1,14 @@
+## version 0.2.0 (30/11/2024)
+* Refactoring of the integrations module
+* Support of qmio-run tunnel_time_limit and reseervation_name
+* OPENQASM 2.0 is now the default language for Qiskit
+* Support of Qiskit Schedule
+* Support for raw format and memory in Qiskit
+* Improvements of Qmio for pyTket, including the atexit and connect/disconnect
+* Improvements for the documentation, including new formatting.
+
+
+
 ## version 0.1.3 (20/07/2024)
 * First tag version 0.1.4
 * Corrected issues with exports to OpenQASM 3.0 from Qiskit 1.2.x
