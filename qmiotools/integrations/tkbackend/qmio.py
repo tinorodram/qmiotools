@@ -17,10 +17,10 @@ from pytket.unit_id import Node, Qubit
 
 
 from typing import List, Union, Tuple, Iterable, Optional, Sequence, Dict
-from .utils import Calibrations
-from ..exceptions import QmioException, QPUException
-from ..version import VERSION
-from ..data import QUBIT_POSITIONS
+from ..utils import Calibrations
+from ...exceptions import QmioException, QPUException
+from ...version import VERSION
+from ...data import QUBIT_POSITIONS
 
 from collections import Counter
 import networkx as nx

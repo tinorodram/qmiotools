@@ -72,13 +72,17 @@ autodoc_default_options = {
     'exclude-members': 'version'
 }
 exclude_paterns = ["**/qmiotools.version.rst"]
+autoclass_content = "both"
+
+templates_path = ["_templates"]
 
 autosummary_generate = True
-autosummary_generate_overwrite = False
+autosummary_generate_overwrite = True
 
 master_doc = 'index'
 napoleon_google_docstring = True
-napoleon_numpy_docstring = True
+napoleon_numpy_docstring = False
+numpydoc_class_members_toctree = False
 
 html_theme = "bizstyle"
 html_last_updated_fmt = "%Y/%m/%d"
