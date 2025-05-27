@@ -1,3 +1,7 @@
+## version 0.2.0 (27/05/2025)
+* Adding support for Qiskit 2.0 
+* When Qiskit 2.0 is detected, the support for Qiskit Schedule is removed.
+
 ## version 0.2.0 (30/11/2024)
 * Refactoring of the integrations module
 * Support of qmio-run tunnel_time_limit and reseervation_name

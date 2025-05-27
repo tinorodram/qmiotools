@@ -1,6 +1,7 @@
-from qiskit.providers import QubitProperties, BackendV2, Provider, Options, Job
+from qiskit.providers import QubitProperties, BackendV2, Options, Job
 from qiskit.providers import JobStatus, JobV1  
-from qiskit.providers.models.backendstatus import BackendStatus
+#Removed for integration with Qiskint 2.0
+#from qiskit.providers.models.backendstatus import BackendStatus
 
 from qiskit.circuit.gate import Instruction
 from qiskit.circuit.library import ECRGate, IGate, Measure, RZXGate, RZGate, SXGate,ECRGate, XGate
@@ -8,12 +9,23 @@ from qiskit.circuit import Delay
 from qiskit.transpiler import Target, InstructionProperties
 from qiskit.circuit.library import UGate, CXGate, Measure
 from qiskit.circuit import Parameter, QuantumCircuit, ClassicalRegister
-from qiskit.pulse import Schedule, ScheduleBlock
+try:
+    from qiskit.pulse import Schedule, ScheduleBlock
+    from .opexporter import OPExporter
+except:
+    import warnings
+    warnings.warn("Using a Qiskit version that does not support pulses. Pulses will not be available")
+    class Schedule():
+        {}
+    class ScheduleBlock():
+        {}
 from qiskit.result.models import ExperimentResult, ExperimentResultData
 from qiskit.result import Result, Counts  
-from qiskit.qobj import QobjExperimentHeader
+#Removed for integration with Qiskint 2.0
+#from qiskit.qobj import QobjExperimentHeader
 from qiskit import qasm2, qasm3, transpile
-from qiskit.qobj.utils import MeasLevel
+#Removed for integration with Qiskint 2.0
+#from qiskit.qobj.utils import MeasLevel
 
 import numpy as np
 import math
@@ -33,7 +45,9 @@ from ...version import VERSION
 from ...data import QBIT_MAP, QUBIT_POSITIONS
 from .qmiojob import QmioJob
 from .flattencircuit import FlattenCircuit
-from .opexporter import OPExporter
+
+
+
 from .qasmcircuit import QasmCircuit
 
 
